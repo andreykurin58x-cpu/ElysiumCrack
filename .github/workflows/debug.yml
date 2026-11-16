@@ -1,0 +1,21 @@
+name: Debug Build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unzip Project
+        run: |
+          mkdir -p project
+          unzip -q *.zip -d project
+          echo "=== FILES IN PROJECT ==="
+          ls -R project
+      - name: Check Gradle Wrapper
+        run: |
+          cd project
+          if [ -d "ElysiumCrack" ]; then cd ElysiumCrack; fi
+          echo "=== GRADLEW CHECK ==="
+          ls -la gradlew || echo "NO GRADLEW FOUND"
+          cat gradle/wrapper/gradle-wrapper.properties || echo "NO PROPS FOUND"
+          cat build.gradle || echo "NO BUILD.GRADLE FOUND"
