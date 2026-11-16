@@ -1,0 +1,44 @@
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip Project
+        run: |
+          mkdir -p project
+          unzip -q ElysiumCrack.zip -d project
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Build
+        run: |
+          cd project
+          if [ -d "ElysiumCrack" ]; then cd ElysiumCrack; fi
+          
+          # Чистим мусор AIDE и пишем нормальный Gradle
+          rm -f build.gradle settings.gradle gradle.properties gradlew
+          rm -rf gradle
+
+          echo "rootProject.name = 'ElysiumCrack'" > settings.gradle
+          echo "include ':app'" >> settings.gradle
+          
+          echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.2.0' } }" > build.gradle
+          echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+          
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          chmod +x gradle-8.2/bin/gradle
+          
+          gradle-8.2/bin/gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElysiumCrack-APK
+          path: project/**/app/build/outputs/apk/debug/*.apk
