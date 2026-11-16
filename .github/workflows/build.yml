@@ -1,1 +1,37 @@
-
+name: Build APK
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Unzip Project
+        run: |
+          mkdir -p project
+          unzip -q *.zip -d project
+      - name: Prepare Gradle
+        run: |
+          cd project
+          if [ -d "ElysiumCrack" ]; then cd ElysiumCrack; fi
+          # Если AIDE не положил wrapper, скачиваем Gradle напрямую
+          if [ ! -f "gradlew" ] || [ ! -f "gradle/wrapper/gradle-wrapper.jar" ]; then
+            wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+            unzip -q gradle-8.2-bin.zip
+            cp -r gradle-8.2/* .
+            rm -rf gradle-8.2 gradle-8.2-bin.zip
+          fi
+          chmod +x gradlew
+      - name: Build
+        run: |
+          cd project
+          if [ -d "ElysiumCrack" ]; then cd ElysiumCrack; fi
+          ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ElysiumCrack-debug
+          path: project/**/app/build/outputs/apk/debug/*.apk
