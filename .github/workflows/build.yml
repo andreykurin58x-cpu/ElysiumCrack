@@ -8,37 +8,69 @@ jobs:
 
       - name: Unzip Project
         run: |
-          mkdir -p project
-          unzip -q ElysiumCrack.zip -d project
+          mkdir -p extracted
+          unzip -q ElysiumCrack.zip -d extracted
+          # Ищем папку app в любом месте, куда бы AIDE её ни засунул
+          APP_DIR=$(find extracted -type d -name "app" | head -n 1)
+          echo "Found app at: $APP_DIR"
+          mkdir -p app
+          cp -r "$APP_DIR"/* app/
+          
+          # Копируем res и main (где лежат видео и звук)
+          mkdir -p app/src/main
+          cp -r "$APP_DIR/src/main/res" app/src/main/ || true
+          cp -r "$APP_DIR/src/main/java" app/src/main/ || true
+          cp -r "$APP_DIR/src/main/AndroidManifest.xml" app/src/main/ || true
 
       - uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Build
+      - name: Create Clean Gradle Config
         run: |
-          cd project
-          if [ -d "ElysiumCrack" ]; then cd ElysiumCrack; fi
-          
-          # Чистим мусор AIDE и пишем нормальный Gradle
-          rm -f build.gradle settings.gradle gradle.properties gradlew
-          rm -rf gradle
-
           echo "rootProject.name = 'ElysiumCrack'" > settings.gradle
           echo "include ':app'" >> settings.gradle
           
-          echo "buildscript { repositories { google(); mavenCentral() } dependencies { classpath 'com.android.tools.build:gradle:8.2.0' } }" > build.gradle
-          echo "allprojects { repositories { google(); mavenCentral() } }" >> build.gradle
+          # Корневой build.gradle
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories { google(); mavenCentral() }
+              dependencies { classpath 'com.android.tools.build:gradle:8.2.0' }
+          }
+          allprojects {
+              repositories { google(); mavenCentral() }
+          }
+          EOF
           
+          # build.gradle для app
+          cat << 'EOF' > app/build.gradle
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.elysium.crack'
+              compileSdk 33
+              defaultConfig {
+                  applicationId "com.elysium.crack"
+                  minSdk 24
+                  targetSdk 33
+                  versionCode 1
+                  versionName "1.0"
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          EOF
+
+      - name: Build with Gradle
+        run: |
           wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
           unzip -q gradle-8.2-bin.zip
-          chmod +x gradle-8.2/bin/gradle
-          
-          gradle-8.2/bin/gradle assembleDebug
+          ./gradle-8.2/bin/gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: ElysiumCrack-APK
-          path: project/**/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
